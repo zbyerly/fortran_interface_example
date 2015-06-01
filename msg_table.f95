@@ -1,0 +1,65 @@
+subroutine msg_table(g)
+use global_data
+implicit none
+type (global_type) :: g
+
+! local variables
+integer :: nlocal, idproc, myproc, rdim, i,j
+
+Integer :: MNP,MNE
+
+MNP=g%NP
+MNE=g%NE
+
+OPEN(g%unit18,FILE='./shin32/'//g%DIRNAME//'/'//'fort.18')
+
+myproc = g%id
+
+READ(g%unit18,3010) IDPROC,NLOCAL
+ALLOCATE ( g%NNODELOC(NLOCAL) )
+READ(g%unit18,1130) (g%NNODELOC(I), I=1,NLOCAL)
+ALLOCATE ( g%IBELONGTO(MNP),g%RESNODE(MNP) )
+
+DO I=1,MNP
+   g%IBELONGTO(I) = 0
+ENDDO
+DO I=1,NLOCAL
+   g%IBELONGTO(g%NNODELOC(I)) = IDPROC + 1
+ENDDO
+DO I=1, MNP
+   IF (g%IBELONGTO(I)-1.EQ.MYPROC) THEN
+      g%RESNODE(I) = .TRUE.
+   ELSE
+      g%RESNODE(I) = .FALSE.
+   ENDIF
+ENDDO
+
+READ(g%unit18,3015) g%NEIGHPROC
+
+RDIM = 2*g%NEIGHPROC
+ALLOCATE( g%INDX(RDIM) )
+ALLOCATE( g%IPROC(g%NEIGHPROC),g%NNODRECV(g%NEIGHPROC) )
+ALLOCATE( g%IRECVLOC(MNP,g%NEIGHPROC) )
+
+DO J=1,g%NEIGHPROC
+   READ(g%unit18,3010) g%IPROC(J),g%NNODRECV(J)
+   READ(g%unit18,1130) (g%IRECVLOC(I,J), I=1,g%NNODRECV(J))
+ENDDO
+
+ALLOCATE( g%NNODSEND(g%NEIGHPROC) )
+ALLOCATE( g%ISENDLOC(MNP,g%NEIGHPROC) )
+
+DO J=1,g%NEIGHPROC
+   READ(g%unit18,3010) g%IPROC(J),g%NNODSEND(J)
+   READ(g%unit18,1130) (g%ISENDLOC(I,J), I=1,g%NNODSEND(J))
+ENDDO
+
+CLOSE(g%unit18)
+
+RETURN
+1130 FORMAT(8X,6I12)
+3010 FORMAT(8X,2I12)
+3015 FORMAT(8X,3I12)
+3020 format(a8,I12)
+
+END SUBROUTINE msg_table
